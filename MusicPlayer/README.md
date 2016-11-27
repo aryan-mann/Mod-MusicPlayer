@@ -1,4 +1,4 @@
-# Music Player
+﻿# Music Player
 Are you tired of using Windows Explorer to search for and play music? 
 Would you like to be able to search for and play music within 4 seconds?
 Music Player module is here to the rescue.
