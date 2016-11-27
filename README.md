@@ -6,7 +6,7 @@ Music Player module is here to the rescue.
 ## Installation
 Download the latest build from GitHub and unzip the file into the Project Butler Modules folder. Yup, it's that easy.
 
-***Latest Build: a***
+[***Latest Stable Release***](https://github.com/aryan-mann/Mod-MusicPlayer/releases/tag/0.1.0)
 
 ## Adding Songs
 Create a folder called '***Songs***' under the Music Player module folder 
