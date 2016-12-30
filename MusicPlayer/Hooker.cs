@@ -41,8 +41,8 @@ namespace MusicPlayer {
         SongList SL_Instance;
 
         private Dictionary<string, Regex> _RegisteredCommands = new Dictionary<string, Regex>() {
-            ["random"] = new Regex("play ?(anything|something|random|any|whatever)"),
             ["specific"] = new Regex("(play|play song|song) (?<song>.+)"),
+            ["random"] = new Regex("play ?(anything|something|random|any|whatever|music)"),
             ["list all"] = new Regex("(all|list) ?songs?")
         };
         public override Dictionary<string, Regex> RegisteredCommands {
@@ -59,7 +59,10 @@ namespace MusicPlayer {
             if(CommandName == "random") {
                 PlayRandom();
             } else if(CommandName == "specific") {
-                PlayThis(RegisteredCommands[CommandName].Match(UserInput).Groups["song"].Value);
+                string song = RegisteredCommands[CommandName].Match(UserInput).Groups["song"].Value.ToString();
+                if(string.IsNullOrWhiteSpace(song)) { return; }
+
+                PlayThis(song);
             } else if(CommandName == "list all") {
                 PlayAll();
             }
@@ -70,7 +73,7 @@ namespace MusicPlayer {
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
             List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => validExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && validExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
-
+                        
             if(SL_Instance == null || !SL_Instance.IsLoaded) {
                 SL_Instance = new SongList(files, BaseDirectory, "all");
             } else {
@@ -102,20 +105,6 @@ namespace MusicPlayer {
                     }
                 };
                 pa.Start();
-                #region --> REMEMBER TO REMOVE THIS <--
-                //files.ForEach(fl => {
-                //    if(Regex.Match(Path.GetFileName(fl).ToLower(), songName.ToLower()).Success) {
-                //        Process pa = new Process() {
-                //            StartInfo = new ProcessStartInfo() {
-                //                FileName = fl,
-                //                WindowStyle = ProcessWindowStyle.Minimized
-                //            }
-                //        };
-                //        pa.Start();
-                //        return;
-                //    }
-                //});
-                #endregion
             } else {
                 if(SL_Instance == null || !SL_Instance.IsLoaded) {
                     SL_Instance = new SongList(matchingFiles, BaseDirectory, songName);
@@ -127,6 +116,7 @@ namespace MusicPlayer {
             }
         }
 
+        Random r = new Random();
         public void PlayRandom() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -135,19 +125,14 @@ namespace MusicPlayer {
 
             if(files.Count == 0) { return; }
 
-            Random r = new Random();
-            int fileToPlay = r.Next(0, files.Count - 1);
-                        
-            Process pa = new Process() {
-                StartInfo = new ProcessStartInfo() {
-                    FileName = files[fileToPlay],
-                    WindowStyle = ProcessWindowStyle.Minimized
-                }
-            };
-            pa.Start();
-            
+            PlayThis(Path.GetFileNameWithoutExtension(files[r.Next(0, files.Count)]));
         }
 
+        /// <summary>
+        /// Checks if the file is a shortcut (*.Ink) file
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
         public static bool IsShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
             string file = Path.GetFileName(path);
@@ -159,6 +144,12 @@ namespace MusicPlayer {
             if(folderItem != null) { return folderItem.IsLink; }
             return false;
         }
+
+        /// <summary>
+        /// Gets the actual file path behind the shortcut (*.Ink) link
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
         public static string ResolveShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
             string file = Path.GetFileName(path);

@@ -42,7 +42,7 @@ namespace MusicPlayer {
                 Hide();
             }
         }
-
+         
         private void SearchList_KeyDown(object sender, KeyEventArgs e) {
             if(e.Key == Key.Enter) {
                 ListBoxItem lbi = (ListBoxItem) SearchList.SelectedItem;
@@ -96,7 +96,8 @@ namespace MusicPlayer {
         }
 
         public void FillList() {
-            SearchList.Items.Clear();
+            SearchList.Items.Clear(); 
+            
             Paths.ForEach(pt => {
                 var LBI = new ListBoxItem() {
                     Background = Brushes.White,
@@ -105,17 +106,18 @@ namespace MusicPlayer {
                     IsTabStop = true,
                 };
 
-                LBI.Content = Path.GetFileNameWithoutExtension(pt);
-                Match m = Regex.Match(Path.GetFileNameWithoutExtension(pt), @"(?<name>.+) - Shortcut", RegexOptions.IgnoreCase);
-                if(m.Success) {
-                    LBI.Content = m.Groups["name"].Value.ToString();
-                }
+                string temp = Path.GetFileNameWithoutExtension(pt);
+                LBI.Content = temp.Substring(0, temp.Length - 15);
 
                 LBI.Selected += (sender, e) => {
-                    LBI.Foreground = Brushes.White;
+                    LBI.Foreground = Brushes.Black;
+                    LBI.FontSize = 64;
+                    LBI.FontWeight = FontWeights.Bold;
                 };
                 LBI.Unselected += (sender, e) => {
                     LBI.Foreground = Brushes.Black;
+                    LBI.FontSize = 18;
+                    LBI.FontWeight = FontWeights.Normal;
                 };
                 LBI.MouseDoubleClick += (sender, e) => {
                     Process pa = new Process() {
