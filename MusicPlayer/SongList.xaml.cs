@@ -16,19 +16,20 @@ using System.Windows.Media.Imaging;
 
 namespace MusicPlayer {
 
-    /// <summary>
-    /// Interaction logic for SongList.xaml
-    /// </summary>
     public partial class SongList : Window {
 
+        //Locations of all songs
         List<string> Paths = new List<string>();
+        //Where to search for songs
         string BaseDirectory { get; set; }
 
+        #region Programmatically Defined Colors
         private static SolidColorBrush DarkGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#232425");
         private static SolidColorBrush LightGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#4D4E4F");
         private static SolidColorBrush CreamWhite { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#F1F1F1");
         private static SolidColorBrush DarkLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#24AB93");
         private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
+#endregion
 
         public SongList(List<string> paths, string baseDirectory, string search) {
             InitializeComponent();
@@ -41,14 +42,29 @@ namespace MusicPlayer {
             SearchInput.KeyDown += SearchInput_KeyDown;
             SearchList.KeyDown += SearchList_KeyDown;
             KeyDown += SongList_KeyDown;
+
+            Deactivated += (sender, e) => {
+                Close();
+            };
         }
 
+        //Set the position and size of the SongList window
+        private void SongList_Loaded(object sender, RoutedEventArgs e) {
+            this.Left = SystemParameters.PrimaryScreenWidth - this.Width;
+            this.Height = SystemParameters.PrimaryScreenHeight;
+            this.Top = 0;
+
+            FillList();
+        }
+
+        //Close the window when escape is pressed while window is active
         private void SongList_KeyDown(object sender, KeyEventArgs e) {
             if(e.Key == Key.Escape) {
                 Hide();
             }
         }
-         
+        
+        //Play the song selected in the SongList window
         private void SearchList_KeyDown(object sender, KeyEventArgs e) {
             if(e.Key == Key.Enter) {
                 ListBoxItem lbi = (ListBoxItem) SearchList.SelectedItem;
@@ -65,6 +81,7 @@ namespace MusicPlayer {
             }
         }
 
+        //Filter songs from the base directory when enter is pressed while searching
         private void SearchInput_KeyDown(object sender, KeyEventArgs e) {
             if(e.Key == Key.Enter) {
                 SearchList.Items.Clear();
@@ -73,19 +90,13 @@ namespace MusicPlayer {
             }
         }
 
-        private void SongList_Loaded(object sender, RoutedEventArgs e) {
-            this.Left = SystemParameters.PrimaryScreenWidth - this.Width;
-            this.Height = SystemParameters.PrimaryScreenHeight;
-            this.Top = 0;
-
-            FillList();
-        }
-
+        //Set the Paths variable directly from a list of paths
         public void FillPaths(List<string> _paths, string songName) {
             SearchInput.Text = songName;
             Paths = _paths;
         }
         
+        //Search for songs in the base directory and then fill the Paths variable
         public void FillPaths(string input) {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -105,6 +116,7 @@ namespace MusicPlayer {
             Paths = matchingFiles;
         }
 
+        //Foreach item in the Paths list, create an entry in the songs list and format the name
         public void FillList() {
             SearchList.Items.Clear(); 
             

@@ -38,8 +38,10 @@ namespace MusicPlayer {
         }
         #endregion
 
+        //Instance of the SongList window
         SongList SL_Instance;
 
+        //Setup commands for Project Butler
         private Dictionary<string, Regex> _RegisteredCommands = new Dictionary<string, Regex>() {
             ["specific"] = new Regex("(play|play song|song) (?<song>.+)"),
             ["random"] = new Regex("play ?(anything|something|random|any|whatever|music)"),
@@ -51,10 +53,12 @@ namespace MusicPlayer {
             }
         }
 
+        //These extensions will be recognized as valid music files
         public static string[] validExtensions = new string[] {
             ".mp3", ".m4a", ".ogg", ".wav", ".flv", ".wmv", ".ink", ".Ink", ".flac"
         };
 
+        //Project Butler command hook
         public override void OnCommandRecieved(string CommandName, string UserInput) {
             if(CommandName == "random") {
                 PlayRandom();
@@ -64,11 +68,12 @@ namespace MusicPlayer {
 
                 PlayThis(song);
             } else if(CommandName == "list all") {
-                PlayAll();
+                DisplaySongList();
             }
         }
 
-        public void PlayAll() {
+        //Creates a popup that shows all songs
+        public void DisplaySongList() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
@@ -83,6 +88,7 @@ namespace MusicPlayer {
             SL_Instance.Show();
         }
 
+        //Play the first song that matches the user input
         public void PlayThis(string songName) {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -117,6 +123,7 @@ namespace MusicPlayer {
         }
 
         Random r = new Random();
+        //Play any random song from the base directory
         public void PlayRandom() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -128,11 +135,7 @@ namespace MusicPlayer {
             PlayThis(Path.GetFileNameWithoutExtension(files[r.Next(0, files.Count)]));
         }
 
-        /// <summary>
-        /// Checks if the file is a shortcut (*.Ink) file
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
+        //Checks to see if a file is a shortcut (.Ink extension)
         public static bool IsShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
             string file = Path.GetFileName(path);
@@ -145,11 +148,7 @@ namespace MusicPlayer {
             return false;
         }
 
-        /// <summary>
-        /// Gets the actual file path behind the shortcut (*.Ink) link
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
+        //Get the real path of a shortcut file
         public static string ResolveShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
             string file = Path.GetFileName(path);
