@@ -9,7 +9,7 @@
     <Border BorderThickness="5" BorderBrush="#FF4D4E4F">
             <Grid>
                 <ListBox x:Name="SearchList" Margin="0,50,0,0" Background="#FF232425" IsTabStop="True" FontSize="18" BorderBrush="#FF252526" ScrollViewer.HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Foreground="#FFF1F1F1"/>
-                <TextBox x:Name="SearchInput" Height="50" Text="SONG NAME" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="30" BorderBrush="#FF252526" BorderThickness="0" FontWeight="Bold" TextDecorations="{x:Null}" Background="#FF4D4E4F" Foreground="#FFF1F1F1" FontFamily="Global User Interface"/>
+                <TextBox x:Name="SearchInput" Height="50" Text="SONG NAME" VerticalAlignment="Top" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="30" BorderBrush="#FF252526" BorderThickness="0" FontWeight="Bold" TextDecorations="{x:Null}" Background="#FF4D4E4F" Foreground="#FFF1F1F1"/>
             </Grid>
         </Border>
 </Window>
