@@ -24,6 +24,12 @@ namespace MusicPlayer {
         List<string> Paths = new List<string>();
         string BaseDirectory { get; set; }
 
+        private static SolidColorBrush DarkGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#232425");
+        private static SolidColorBrush LightGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#4D4E4F");
+        private static SolidColorBrush CreamWhite { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#F1F1F1");
+        private static SolidColorBrush DarkLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#24AB93");
+        private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
+
         public SongList(List<string> paths, string baseDirectory, string search) {
             InitializeComponent();
 
@@ -68,6 +74,10 @@ namespace MusicPlayer {
         }
 
         private void SongList_Loaded(object sender, RoutedEventArgs e) {
+            this.Left = SystemParameters.PrimaryScreenWidth - this.Width;
+            this.Height = SystemParameters.PrimaryScreenHeight;
+            this.Top = 0;
+
             FillList();
         }
 
@@ -98,10 +108,11 @@ namespace MusicPlayer {
         public void FillList() {
             SearchList.Items.Clear(); 
             
+            //Design of the list items
             Paths.ForEach(pt => {
                 var LBI = new ListBoxItem() {
-                    Background = Brushes.White,
-                    Foreground = Brushes.Black,
+                    Background = DarkGrey,
+                    Foreground = CreamWhite,
                     DataContext = pt,
                     IsTabStop = true,
                 };
@@ -110,12 +121,10 @@ namespace MusicPlayer {
                 LBI.Content = temp.Substring(0, temp.Length - 15);
 
                 LBI.Selected += (sender, e) => {
-                    LBI.Foreground = Brushes.Black;
-                    LBI.FontSize = 64;
+                    LBI.FontSize = 36;
                     LBI.FontWeight = FontWeights.Bold;
                 };
                 LBI.Unselected += (sender, e) => {
-                    LBI.Foreground = Brushes.Black;
                     LBI.FontSize = 18;
                     LBI.FontWeight = FontWeights.Normal;
                 };
@@ -127,6 +136,7 @@ namespace MusicPlayer {
                         }
                     };
                     pa.Start();
+                    this.Close();
                 };
                 SearchList.Items.Add(LBI);
             });
