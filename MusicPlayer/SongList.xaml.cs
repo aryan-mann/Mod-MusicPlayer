@@ -1,4 +1,4 @@
-﻿using System;
+﻿    using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -20,6 +20,8 @@ namespace MusicPlayer {
 
         //Locations of all songs
         List<string> Paths = new List<string>();
+        //ItemSource
+        List<ListBoxItem> SongSource = new List<ListBoxItem>();
         //Where to search for songs
         string BaseDirectory { get; set; }
 
@@ -84,7 +86,10 @@ namespace MusicPlayer {
         //Filter songs from the base directory when enter is pressed while searching
         private void SearchInput_KeyDown(object sender, KeyEventArgs e) {
             if(e.Key == Key.Enter) {
-                SearchList.Items.Clear();
+                SongSource.Clear();
+                SearchList.ItemsSource = null;
+                SearchList.ItemsSource = SongSource;
+
                 FillPaths(SearchInput.Text);
                 FillList();
             }
@@ -112,46 +117,49 @@ namespace MusicPlayer {
                 }
             }
 
-            if(files.Count == 0) { SearchList.Items.Clear(); return; }
+            if(files.Count == 0) {
+                SongSource.Clear();
+                SearchList.ItemsSource = null;
+                SearchList.ItemsSource = SongSource;
+                return; }
             Paths = matchingFiles;
         }
 
         //Foreach item in the Paths list, create an entry in the songs list and format the name
         public void FillList() {
-            SearchList.Items.Clear(); 
+            SongSource.Clear();
             
             //Design of the list items
             Paths.ForEach(pt => {
+
                 var LBI = new ListBoxItem() {
-                    Background = DarkGrey,
-                    Foreground = CreamWhite,
-                    DataContext = pt,
                     IsTabStop = true,
                 };
 
-                string temp = Path.GetFileNameWithoutExtension(pt);
-                LBI.Content = temp.Substring(0, temp.Length - 15);
+                if(Regex.Match(pt, @"(.+)( - Shortcut\.lnk)").Success) {
+                    LBI.Content = Path.GetFileNameWithoutExtension(pt.Substring(0, pt.Length - 15));
+                } else {
+                    LBI.Content = Path.GetFileNameWithoutExtension(pt);
+                }
+                
+                LBI.DataContext = pt;
 
-                LBI.Selected += (sender, e) => {
-                    LBI.FontSize = 36;
-                    LBI.FontWeight = FontWeights.Bold;
-                };
-                LBI.Unselected += (sender, e) => {
-                    LBI.FontSize = 18;
-                    LBI.FontWeight = FontWeights.Normal;
-                };
                 LBI.MouseDoubleClick += (sender, e) => {
                     Process pa = new Process() {
                         StartInfo = new ProcessStartInfo() {
-                            FileName = LBI.DataContext.ToString(),
+                            FileName = pt,
                             WindowStyle = ProcessWindowStyle.Minimized
                         }
                     };
                     pa.Start();
                     this.Close();
                 };
-                SearchList.Items.Add(LBI);
+
+                SongSource.Add(LBI);
             });
+
+            SearchList.ItemsSource = null;
+            SearchList.ItemsSource = SongSource;
         }
 
     }
