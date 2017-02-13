@@ -43,9 +43,10 @@ namespace MusicPlayer {
 
         //Setup commands for Project Butler
         private Dictionary<string, Regex> _RegisteredCommands = new Dictionary<string, Regex>() {
-            ["specific"] = new Regex("(play|play song|song) (?<song>.+)"),
-            ["random"] = new Regex("play ?(anything|something|random|any|whatever|music)"),
-            ["list all"] = new Regex("(all|list) ?songs?")
+            ["specific"] = new Regex("^(play|play song|song) (?<song>.+)$"),
+            ["random"] = new Regex("^play ?(anything|something|random|any|whatever|music)$"),
+            ["list all"] = new Regex("^(all|list) ?songs?$"),
+            ["volume"] = new Regex("^vol (?<action>up|down|mute)$")
         };
         public override Dictionary<string, Regex> RegisteredCommands {
             get {
@@ -72,7 +73,7 @@ namespace MusicPlayer {
             }
         }
 
-        //Creates a popup that shows all songs
+        //Creates a popup that shows all songs ["list all"]
         public void DisplaySongList() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -88,8 +89,8 @@ namespace MusicPlayer {
             SL_Instance.Show();
         }
 
-        //Play the first song that matches the user input
-        public void PlayThis(string songName) {
+        //Play the first song that matches the user input ["specific"]
+        public void PlayThis(string songName, bool showList = true) {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
@@ -112,18 +113,30 @@ namespace MusicPlayer {
                 };
                 pa.Start();
             } else {
-                if(SL_Instance == null || !SL_Instance.IsLoaded) {
-                    SL_Instance = new SongList(matchingFiles, BaseDirectory, songName);
-                } else {
-                    SL_Instance.FillPaths(matchingFiles, songName);
-                    SL_Instance.FillList();
+                if (showList) {
+                    if (SL_Instance == null || !SL_Instance.IsLoaded) {
+                        SL_Instance = new SongList(matchingFiles, BaseDirectory, songName);
+                    }
+                    else {
+                        SL_Instance.FillPaths(matchingFiles, songName);
+                        SL_Instance.FillList();
+                    }
+                    SL_Instance.Show();
                 }
-                SL_Instance.Show();
+                else {
+                    Process pa = new Process() {
+                        StartInfo = new ProcessStartInfo() {
+                            FileName = matchingFiles[0],
+                            WindowStyle = ProcessWindowStyle.Minimized
+                        }
+                    };
+                    pa.Start();
+                }
             }
         }
 
-        Random r = new Random();
-        //Play any random song from the base directory
+        Random _r = new Random();
+        //Play any random song from the base directory ["random"]
         public void PlayRandom() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
@@ -132,7 +145,7 @@ namespace MusicPlayer {
 
             if(files.Count == 0) { return; }
 
-            PlayThis(Path.GetFileNameWithoutExtension(files[r.Next(0, files.Count)]));
+            PlayThis(Path.GetFileNameWithoutExtension(files[_r.Next(0, files.Count)]), false);
         }
 
         //Checks to see if a file is a shortcut (.Ink extension)
@@ -147,7 +160,6 @@ namespace MusicPlayer {
             if(folderItem != null) { return folderItem.IsLink; }
             return false;
         }
-
         //Get the real path of a shortcut file
         public static string ResolveShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
