@@ -3,33 +3,21 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using ModuleAPI;
 
 namespace MusicPlayer {
 
     [ApplicationHook]
-    public class Hooker : ModuleAPI.Module {
+    public class Hooker : Module {
 
         #region Useless Stuff
-        public override string Author {
-            get { return "Aryan Mann"; }
-        }
-        public override string SemVer {
-            get { return "0.1.0"; }
-        }
-        public override string Name {
-            get { return "Music Player"; }
-        }
-        public override Uri Website {
-            get { return new Uri("http://www.aryanmann.com/"); }
-        }
-        public override void ConfigureSettings() {
-            return;
-        }
+        public override string Name { get; } = "Music Player";
+        public override string SemVer { get; } = "0.1.0";
+        public override string Author => "Aryan Mann";
+        public override Uri Website { get; } = new Uri("http://www.aryanmann.com/");
+        
+        public override void ConfigureSettings() {}
         public override void OnInitialized() {
             return;
         }
@@ -39,23 +27,18 @@ namespace MusicPlayer {
         #endregion
 
         //Instance of the SongList window
-        SongList SL_Instance;
+        SongList _slInstance;
 
         //Setup commands for Project Butler
-        private Dictionary<string, Regex> _RegisteredCommands = new Dictionary<string, Regex>() {
+        public override Dictionary<string, Regex> RegisteredCommands => new Dictionary<string, Regex>(){
             ["specific"] = new Regex("^(play|play song|song) (?<song>.+)$"),
             ["random"] = new Regex("^play ?(anything|something|random|any|whatever|music)$"),
             ["list all"] = new Regex("^(all|list) ?songs?$"),
             ["volume"] = new Regex("^vol (?<action>up|down|mute)$")
         };
-        public override Dictionary<string, Regex> RegisteredCommands {
-            get {
-                return _RegisteredCommands;
-            }
-        }
 
         //These extensions will be recognized as valid music files
-        public static string[] validExtensions = new string[] {
+        public static string[] ValidExtensions = {
             ".mp3", ".m4a", ".ogg", ".wav", ".flv", ".wmv", ".ink", ".Ink", ".flac"
         };
 
@@ -78,15 +61,15 @@ namespace MusicPlayer {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => validExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && validExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
+            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
                         
-            if(SL_Instance == null || !SL_Instance.IsLoaded) {
-                SL_Instance = new SongList(files, BaseDirectory, "all");
+            if(_slInstance == null || !_slInstance.IsLoaded) {
+                _slInstance = new SongList(files, BaseDirectory, "all");
             } else {
-                SL_Instance.FillPaths(files, "all");
-                SL_Instance.FillList();
+                _slInstance.FillPaths(files, "all");
+                _slInstance.FillList();
             }
-            SL_Instance.Show();
+            _slInstance.Show();
         }
 
         //Play the first song that matches the user input ["specific"]
@@ -94,7 +77,7 @@ namespace MusicPlayer {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => validExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && validExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
+            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
 
             List<string> matchingFiles = new List<string>();
             files.ForEach(fl => {
@@ -114,14 +97,14 @@ namespace MusicPlayer {
                 pa.Start();
             } else {
                 if (showList) {
-                    if (SL_Instance == null || !SL_Instance.IsLoaded) {
-                        SL_Instance = new SongList(matchingFiles, BaseDirectory, songName);
+                    if (_slInstance == null || !_slInstance.IsLoaded) {
+                        _slInstance = new SongList(matchingFiles, BaseDirectory, songName);
                     }
                     else {
-                        SL_Instance.FillPaths(matchingFiles, songName);
-                        SL_Instance.FillList();
+                        _slInstance.FillPaths(matchingFiles, songName);
+                        _slInstance.FillList();
                     }
-                    SL_Instance.Show();
+                    _slInstance.Show();
                 }
                 else {
                     Process pa = new Process() {
@@ -135,13 +118,13 @@ namespace MusicPlayer {
             }
         }
 
-        Random _r = new Random();
+        private Random _r = new Random();
         //Play any random song from the base directory ["random"]
         public void PlayRandom() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
             if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
 
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => validExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && validExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
+            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
 
             if(files.Count == 0) { return; }
 

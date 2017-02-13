@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MusicPlayer"
         mc:Ignorable="d"
         Title="Song List" Height="720" Width="660" WindowStartupLocation="CenterScreen" WindowStyle="None" AllowsTransparency="True">
     <Border BorderThickness="5" BorderBrush="#FF4D4E4F">

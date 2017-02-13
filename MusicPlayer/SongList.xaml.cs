@@ -1,42 +1,36 @@
-﻿    using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace MusicPlayer {
 
     public partial class SongList : Window {
 
         //Locations of all songs
-        List<string> Paths = new List<string>();
+        List<string> _paths;
         //ItemSource
         List<ListBoxItem> SongSource = new List<ListBoxItem>();
         //Where to search for songs
         string BaseDirectory { get; set; }
 
-        #region Programmatically Defined Colors
-        private static SolidColorBrush DarkGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#232425");
-        private static SolidColorBrush LightGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#4D4E4F");
-        private static SolidColorBrush CreamWhite { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#F1F1F1");
-        private static SolidColorBrush DarkLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#24AB93");
-        private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
-#endregion
+        //        #region Programmatically Defined Colors
+//        private static SolidColorBrush DarkGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#232425");
+//        private static SolidColorBrush LightGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#4D4E4F");
+//        private static SolidColorBrush CreamWhite { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#F1F1F1");
+//        private static SolidColorBrush DarkLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#24AB93");
+//        private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
+//#endregion
 
         public SongList(List<string> paths, string baseDirectory, string search) {
             InitializeComponent();
 
-            Paths = paths;
+            _paths = paths;
             SearchInput.Text = search;
             BaseDirectory = baseDirectory;
 
@@ -52,9 +46,9 @@ namespace MusicPlayer {
 
         //Set the position and size of the SongList window
         private void SongList_Loaded(object sender, RoutedEventArgs e) {
-            this.Left = SystemParameters.PrimaryScreenWidth - this.Width;
-            this.Height = SystemParameters.PrimaryScreenHeight;
-            this.Top = 0;
+            Left = SystemParameters.PrimaryScreenWidth - Width;
+            Height = SystemParameters.PrimaryScreenHeight;
+            Top = 0;
 
             FillList();
         }
@@ -98,7 +92,7 @@ namespace MusicPlayer {
         //Set the Paths variable directly from a list of paths
         public void FillPaths(List<string> _paths, string songName) {
             SearchInput.Text = songName;
-            Paths = _paths;
+            this._paths = _paths;
         }
         
         //Search for songs in the base directory and then fill the Paths variable
@@ -108,7 +102,7 @@ namespace MusicPlayer {
 
             SearchInput.Text = input;
 
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => Hooker.validExtensions.Contains(Path.GetExtension(path).ToLower()) || (Hooker.IsShortcut(path) && Hooker.validExtensions.Contains(Path.GetExtension(Hooker.ResolveShortcut(path))))).ToList();
+            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => Hooker.ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (Hooker.IsShortcut(path) && Hooker.ValidExtensions.Contains(Path.GetExtension(Hooker.ResolveShortcut(path))))).ToList();
 
             List<string> matchingFiles = new List<string>();
             foreach(string s in files) {
@@ -122,7 +116,7 @@ namespace MusicPlayer {
                 SearchList.ItemsSource = null;
                 SearchList.ItemsSource = SongSource;
                 return; }
-            Paths = matchingFiles;
+            _paths = matchingFiles;
         }
 
         //Foreach item in the Paths list, create an entry in the songs list and format the name
@@ -130,19 +124,15 @@ namespace MusicPlayer {
             SongSource.Clear();
             
             //Design of the list items
-            Paths.ForEach(pt => {
+            _paths.ForEach(pt => {
 
-                var LBI = new ListBoxItem() {
+                var LBI = new ListBoxItem {
                     IsTabStop = true,
+                    Content = Path.GetFileNameWithoutExtension(Regex.Match(pt, @"(.+)( - Shortcut\.lnk)").Success ? pt.Substring(0, pt.Length - 15) : pt),
+                    DataContext = pt,
                 };
 
-                if(Regex.Match(pt, @"(.+)( - Shortcut\.lnk)").Success) {
-                    LBI.Content = Path.GetFileNameWithoutExtension(pt.Substring(0, pt.Length - 15));
-                } else {
-                    LBI.Content = Path.GetFileNameWithoutExtension(pt);
-                }
-                
-                LBI.DataContext = pt;
+
 
                 LBI.MouseDoubleClick += (sender, e) => {
                     Process pa = new Process() {
@@ -152,7 +142,7 @@ namespace MusicPlayer {
                         }
                     };
                     pa.Start();
-                    this.Close();
+                    Close();
                 };
 
                 SongSource.Add(LBI);
