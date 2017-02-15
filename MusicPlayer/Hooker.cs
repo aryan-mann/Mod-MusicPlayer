@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using AudioSwitcher.AudioApi;
@@ -22,6 +23,7 @@ namespace MusicPlayer {
         public override string SemVer { get; } = "0.1.0";
         public override string Author => "Aryan Mann";
         public override Uri Website { get; } = new Uri("http://www.aryanmann.com/");
+        public override string Prefix => "music";
 
         public override void ConfigureSettings() { }
         public override void OnInitialized() {
@@ -37,16 +39,16 @@ namespace MusicPlayer {
         private CoreAudioDevice audioDevice;
 
         public Hooker() {
-            audioDevice = new CoreAudioController().DefaultPlaybackDevice;
+            Task.Factory.StartNew(() => audioDevice = new CoreAudioController().DefaultPlaybackDevice);
         }
         
         //Setup commands for Project Butler
         public override Dictionary<string, Regex> RegisteredCommands => new Dictionary<string, Regex>() {
             ["specific"] = new Regex("^(play|play song|song) (?<song>.+)$"),
-            ["random"] = new Regex("^play ?(anything|something|random|any|whatever|music)$"),
-            ["list all"] = new Regex("^(all|list) ?songs?$"),
-            ["volume"] = new Regex("^vol (?<action>up|down|mute|zero|full|min|max)$"),
-            ["set volume"] = new Regex(@"^vol ?set (?<volume>\d{1,3})$")
+            ["random"] = new Regex("^(anything|something|random|any|whatever|music)$"),
+            ["list all"] = new Regex("^list( all)?$"),
+            ["volume"] = new Regex("^vol(ume)? (?<action>up|down|mute|zero|full|min|max)$"),
+            ["set volume"] = new Regex(@"^set vol(ume)? (?<volume>\d{1,3})$")
         };
 
         //These extensions will be recognized as valid music files
@@ -55,20 +57,21 @@ namespace MusicPlayer {
         };
 
         //Project Butler command hook
-        public override void OnCommandRecieved(string commandName, string userInput) {
-            if(commandName == "random") {
+        public override void OnCommandRecieved(Command cmd) {
+            
+            if(cmd.LocalCommand == "random") {
                 PlayRandom();
-            } else if(commandName == "specific") {
-                string song = RegisteredCommands[commandName].Match(userInput).Groups["song"].Value.ToString();
+            } else if(cmd.LocalCommand == "specific") {
+                string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["song"].Value.ToString();
                 if(string.IsNullOrWhiteSpace(song)) { return; }
 
-                PlayThis(song);
-            } else if(commandName == "list all") {
+                PlayThis(song, cmd.RequesterIP == null);
+            } else if(cmd.LocalCommand == "list all") {
                 DisplaySongList();
-            } else if(commandName == "volume") {
-                HandleVolume(RegisteredCommands[commandName].Match(userInput).Groups["action"].Value);
-            } else if (commandName == "set volume") {
-                SetVolume(RegisteredCommands[commandName].Match(userInput).Groups["volume"].Value);
+            } else if(cmd.LocalCommand == "volume") {
+                HandleVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["action"].Value);
+            } else if (cmd.LocalCommand == "set volume") {
+                SetVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["volume"].Value);
             }
         }
 
