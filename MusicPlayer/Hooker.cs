@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using AudioSwitcher.AudioApi;
 using AudioSwitcher.AudioApi.CoreAudio;
 using AudioSwitcher.AudioApi.Observables;
@@ -65,13 +66,28 @@ namespace MusicPlayer {
                 string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["song"].Value.ToString();
                 if(string.IsNullOrWhiteSpace(song)) { return; }
 
-                PlayThis(song, cmd.RequesterIP == null);
+                PlayThis(song, cmd.IsLocalCommand);
             } else if(cmd.LocalCommand == "list all") {
-                DisplaySongList();
+
+                if (cmd.IsLocalCommand) {
+                    DisplaySongList();
+                }
+                else {
+                    string text = "";
+                    var songs = GetSongs();
+
+                    for (int i = 0; i < songs.Count; i++) {
+                        text += $"{i}. {Path.GetFileNameWithoutExtension(Regex.Match(songs[i], @"(.+)( - Shortcut\.lnk)").Success ? songs[i].Substring(0, songs[i].Length - 15) : songs[i])}\n";
+                    }
+                    cmd.Respond(text);
+                }
+
             } else if(cmd.LocalCommand == "volume") {
                 HandleVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["action"].Value);
+                cmd.Respond($@"Volume has been set to {audioDevice.Volume}");
             } else if (cmd.LocalCommand == "set volume") {
                 SetVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["volume"].Value);
+                cmd.Respond($@"Volume has been set to {audioDevice.Volume}");
             }
         }
 
@@ -108,12 +124,15 @@ namespace MusicPlayer {
             audioDevice.Volume = iVol;
         }
 
+        private List<string> GetSongs() {
+            string songPath = Path.Combine(BaseDirectory, "Songs");
+            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return new List<string>(); }
+            return Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
+        }
+
         //Creates a popup that shows all songs ["list all"]
         public void DisplaySongList() {
-            string songPath = Path.Combine(BaseDirectory, "Songs");
-            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
-
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
+            List<string> files = GetSongs();
 
             if(_slInstance == null || !_slInstance.IsLoaded) {
                 _slInstance = new SongList(files, BaseDirectory, "all");
