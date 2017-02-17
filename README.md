@@ -20,17 +20,23 @@ shortcuts at runtime.
 ***Valid Extensions:*** ```MP3 M4A OGG WAV FLV FLAC INK (shortcut)```
 ## Commands
 
+The trigger/prefix is ``music``
+
 ### - Random
 Don't know what to listen to? Play something at random.
 
-- ```play anything```
-- ```play something```
-- ```play whatever```
-- ```play random```
-- ```play any```
+Raw Regex | ``(anything|something|whatever|random|any)``
+
+- ```anything```
+- ```something```
+- ```whatever```
+- ```random```
+- ```any```
 
 ### - Specific
 Know what to listen to? Play what you want.
+
+Raw Regex | ``(play|song| play song) (.+)`` 
 
 - ```play *song name*```
 - ```song *song name*```
@@ -39,9 +45,28 @@ Know what to listen to? Play what you want.
 ### - View All Songs
 View all recognized songs and play one from them.
 
-- ```all songs```
-- ```list songs```
-- ```list song```
+Raw Regex | ``list( all)``
+
+- ```list```
+- ```list all```
+
+### - Quickset Volume
+Quickly set the volume of the current playback device to preset values.
+
+Raw Regex | ``vol(ume)? (?<action>up|down|mute|zero|full|min|max)``
+
+- ```vol max```
+- ```volume min```
+- ```vol up```
+- ```volume mute```
+
+### - Finetune Volume
+Set the exact value of the volume of the current playback device (0-100).
+
+Raw Regex | ``set vol(ume)? (?<volume>\d{1,3})``
+
+- ```set volume 28```
+- ```set vol 94```
 
 ## Seamless UI Integration
 Upon receiving a play command, music player automatically plays the song if only one file is returned from
@@ -50,3 +75,6 @@ the search otherwise it will open a UI that is overlayed on top of the current w
 Example:- If I search for **Decks Da**, it will automatically play it. If I search for **How**, it will return a list of songs.
 
 ![alt text](http://aryanmann.com/wp-content/uploads/2017/01/FilterSongsHow.png "Filtered Songs")
+
+## Now Supports Remote Commands
+Listing songs or searching for songs through a remote device (such as a TCP client on a mobile phone) will return a message from the server containing all resulting songs.
