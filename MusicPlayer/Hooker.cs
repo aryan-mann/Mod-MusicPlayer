@@ -34,219 +34,139 @@ namespace MusicPlayer {
         #endregion
 
         //Instance of the SongList window
-        SongList _slInstance;
-        private bool _isRadioRunning = false;
-        private List<string> _songs = null;
-        private string _lastPlayedSong = null;
-        private string _randomSong => _songs[_r.Next(0, _songs.Count)];
+        public List<MusicFile> Songs = new List<MusicFile>();
+        private SongList _slInstance;
+        private bool _initialized = false;
 
+        private Random _r = new Random();
+        public MusicFile RandomSong => Songs[_r.Next(0, Songs.Count)];
+
+        public void RefreshSongs() {
+            Songs = new List<MusicFile>();
+            foreach(string file in Directory.GetFiles(Path.Combine(BaseDirectory, "Songs"), "*", SearchOption.AllDirectories)) {
+                MusicFile mf = MusicFile.FromFile(file);
+                if(mf != null) {
+                    Songs.Add(mf);
+                }
+            }
+        }
 
         //Setup commands for Project Butler
         public override Dictionary<string, Regex> RegisteredCommands => new Dictionary<string, Regex>() {
-            ["specific"] = new Regex("^(play|play song|song) (?<song>.+)$"),
-            ["random"] = new Regex("^(anything|something|random|any|whatever|music)$"),
-            ["list all"] = new Regex("^list( all)?$"),
-            ["start radio"] = new Regex("radio on"),
-            ["end radio"] = new Regex("radio off")
+             ["List"] = new Regex(@"^list$", RegexOptions.IgnoreCase),
+             ["Refresh"] = new Regex(@"^refresh$", RegexOptions.IgnoreCase),
+             ["Play Song"] = new Regex(@"^play (?<name>.+)$", RegexOptions.IgnoreCase),
+             ["List Artist"] = new Regex(@"^artist (?<artist>.+)$", RegexOptions.IgnoreCase),
+             ["List Album"] = new Regex(@"^album (?<album>.+)$", RegexOptions.IgnoreCase)
         };
 
-        //These extensions will be recognized as valid music files
-        public static string[] ValidExtensions = {
-            ".mp3", ".m4a", ".ogg", ".wav", ".flv", ".wmv", ".ink", ".Ink", ".flac"
-        };
+        
 
         //Project Butler command hook
         public override void OnCommandRecieved(Command cmd) {
 
-            if (_songs == null) {
-                _songs = GetSongs();
+            if (!_initialized) {
+                RefreshSongs();
+                _initialized = true;
             }
 
-            if(cmd.LocalCommand == "random") {
-                PlayRandom();
-                return;
-            }
+            if (cmd.LocalCommand == "List") {
 
-            if(cmd.LocalCommand == "specific") {
-                string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["song"].Value.ToString();
-                if(string.IsNullOrWhiteSpace(song)) { return; }
-
-                PlayThis(song, cmd.IsLocalCommand);
-                return;
-            }
-
-            if(cmd.LocalCommand == "list all") {
-
-                if(cmd.IsLocalCommand) {
+                if (cmd.IsLocalCommand) {
                     DisplaySongList();
                 } else {
-                    string text = "";
-                    var songs = GetSongs();
-
-                    for(int i = 0; i < songs.Count; i++) {
-                        text += $"{i}. {Path.GetFileNameWithoutExtension(Regex.Match(songs[i], @"(.+)( - Shortcut\.lnk)").Success ? songs[i].Substring(0, songs[i].Length - 15) : songs[i])}\n";
-                    }
-                    cmd.Respond(text);
+                    string output = $"";
+                    Songs.ForEach(mf => {
+                        output += (string.IsNullOrWhiteSpace(mf.Artist) ? "" : $"{mf.Artist} - ") + $"{mf.Title}\n";
+                    });
+                    cmd.Respond(output);
                 }
 
                 return;
             }
 
-            if(cmd.LocalCommand == "start radio") {
-                StartRadio();
-                return;
-            }
+            if (cmd.LocalCommand == "Refresh") {
+                RefreshSongs();
 
-            if(cmd.LocalCommand == "end radio") {
-                StopRadio();
-                return;
-            }
-
-        }
-
-        #region Radio
-
-        #region Radio
-
-        private void StartRadio() {
-            _isRadioRunning = true;
-            RadioLoop();
-        }
-
-        private void RadioLoop() {
-
-            if(!_isRadioRunning) { return; }
-
-            string chosenSongPath = _randomSong;
-            string resolvedPath = ResolveShortcut(chosenSongPath);
-            TagLib.File f = TagLib.File.Create(resolvedPath);
-
-            double timer = f.Properties.Duration.TotalSeconds;
-            Process pa = new Process() {
-                StartInfo =  new ProcessStartInfo() {
-                    FileName = resolvedPath,
-                    WindowStyle =  ProcessWindowStyle.Minimized
+                if (!cmd.IsLocalCommand) {
+                    cmd.Respond("Refreshed!");
                 }
-            };
-            pa.Start();
-            _lastPlayedSong = resolvedPath;
 
-            var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-            Task.Factory.StartNew(() => {  }).ContinueWith(task => {
-                Task.Delay((int) timer * 1000).Wait();
-                RadioLoop();
-            }, scheduler);
+                return;
+            }
+
+            if (cmd.LocalCommand == "Play Song") {
+                string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["name"].Value.ToLower();
+                MusicFile mf = Songs.FirstOrDefault(f => Regex.Match(f.Title.ToLower(), song).Success);
+
+                if(mf == null) { return; }
+
+                mf.Play();
+                if (!cmd.IsLocalCommand) {
+                    cmd.Respond($"Playing {mf.Title}");
+                }
+
+                return;
+            }
+
+            if (cmd.LocalCommand == "Random") {
+                RandomSong.Play();
+                if (!cmd.IsLocalCommand) {
+                    cmd.Respond("Choosing a random song.");    
+                }
+
+                return;
+            }
+
+            if (cmd.LocalCommand == "List Artist") {
+                string artist = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["artist"].Value.ToLower();
+                List<MusicFile> files = Songs.Where(s => (Regex.Match(s.Artist.ToLower(), artist).Success && !string.IsNullOrWhiteSpace(s.Artist))) .ToList();
+
+                if (cmd.IsLocalCommand) {
+                    DisplaySongList(files);
+                } else {
+                    string output = $"";
+                    files.ForEach(mf => {
+                        output += $"{mf.Title}\n";
+                    });
+                    cmd.Respond(output);
+                }
+
+                return;
+            }
+
+            if (cmd.LocalCommand == "List Album") {
+                string album = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["album"].Value.ToLower();
+                List<MusicFile> files = Songs.Where(s => (Regex.Match(s.Album.ToLower(), album).Success && !string.IsNullOrWhiteSpace(s.Album))).ToList();
+
+                if(cmd.IsLocalCommand) {
+                    DisplaySongList(files);
+                } else {
+                    string output = $"";
+                    files.ForEach(mf => {
+                        output += $"{mf.Title}\n";
+                    });
+                    cmd.Respond(output);
+                }
+                return;
+            }
+
         }
 
-        private void StopRadio() {
-            _isRadioRunning = false;
+        private void Play(MusicFile f) {
+            Process.Start(f.Filepath);
         }
-
-        #endregion
-
-        #endregion
-
-
-        private List<string> GetSongs() {
-            string songPath = Path.Combine(BaseDirectory, "Songs");
-            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return new List<string>(); }
-            return Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
-        }
-
+        
         //Creates a popup that shows all songs ["list all"]
-        public void DisplaySongList() {
-            List<string> files = GetSongs();
+        public void DisplaySongList(List<MusicFile> filesToShow = null) {
 
             if(_slInstance == null || !_slInstance.IsLoaded) {
-                _slInstance = new SongList(files, BaseDirectory, "all");
+                _slInstance = new SongList(filesToShow ?? Songs, BaseDirectory, "all");
             } else {
-                _slInstance.FillPaths(files, "all");
+                _slInstance.FillPaths(filesToShow ?? Songs, "all");
                 _slInstance.FillList();
             }
             _slInstance.Show();
-        }
-
-        //Play the first song that matches the user input ["specific"]
-        public void PlayThis(string songName, bool showList = true) {
-            string songPath = Path.Combine(BaseDirectory, "Songs");
-            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
-
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
-
-            List<string> matchingFiles = new List<string>();
-            files.ForEach(fl => {
-                if(Regex.Match(Path.GetFileNameWithoutExtension(fl), songName, RegexOptions.IgnoreCase).Success) {
-                    matchingFiles.Add(fl);
-                }
-            });
-
-            if(matchingFiles.Count == 0) { return; } else if(matchingFiles.Count == 1) {
-                Process pa = new Process() {
-                    StartInfo = new ProcessStartInfo() {
-                        FileName = matchingFiles[0],
-                        WindowStyle = ProcessWindowStyle.Minimized
-                    }
-                };
-                pa.Start();
-            } else {
-                if(showList) {
-                    if(_slInstance == null || !_slInstance.IsLoaded) {
-                        _slInstance = new SongList(matchingFiles, BaseDirectory, songName);
-                    } else {
-                        _slInstance.FillPaths(matchingFiles, songName);
-                        _slInstance.FillList();
-                    }
-                    _slInstance.Show();
-                } else {
-                    Process pa = new Process() {
-                        StartInfo = new ProcessStartInfo() {
-                            FileName = matchingFiles[0],
-                            WindowStyle = ProcessWindowStyle.Minimized
-                        }
-                    };
-                    pa.Start();
-                }
-                _lastPlayedSong = matchingFiles[0];
-            }
-        }
-
-        private Random _r = new Random();
-        //Play any random song from the base directory ["random"]
-        public void PlayRandom() {
-            string songPath = Path.Combine(BaseDirectory, "Songs");
-            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
-
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (IsShortcut(path) && ValidExtensions.Contains(Path.GetExtension(ResolveShortcut(path))))).ToList();
-
-            if(files.Count == 0) { return; }
-
-            PlayThis(Path.GetFileNameWithoutExtension(files[_r.Next(0, files.Count)]), false);
-        }
-
-        //Checks to see if a file is a shortcut (.Ink extension)
-        public static bool IsShortcut(string path) {
-            string directory = Path.GetDirectoryName(path);
-            string file = Path.GetFileName(path);
-
-            Shell32.Shell shell = new Shell32.Shell();
-            Shell32.Folder folder = shell.NameSpace(directory);
-            Shell32.FolderItem folderItem = folder.ParseName(file);
-
-            if(folderItem != null) { return folderItem.IsLink; }
-            return false;
-        }
-        //Get the real path of a shortcut file
-        public static string ResolveShortcut(string path) {
-            string directory = Path.GetDirectoryName(path);
-            string file = Path.GetFileName(path);
-
-            Shell32.Shell shell = new Shell32.Shell();
-            Shell32.Folder folder = shell.NameSpace(directory);
-            Shell32.FolderItem folderItem = folder.ParseName(file);
-
-            Shell32.ShellLinkObject link = (Shell32.ShellLinkObject) folderItem.GetLink;
-
-            return link.Path;
         }
 
     }

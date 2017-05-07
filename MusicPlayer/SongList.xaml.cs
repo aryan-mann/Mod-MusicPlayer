@@ -13,7 +13,7 @@ namespace MusicPlayer {
     public partial class SongList : Window {
 
         //Locations of all songs
-        List<string> _paths;
+        List<MusicFile> _paths;
         //ItemSource
         List<ListBoxItem> SongSource = new List<ListBoxItem>();
         //Where to search for songs
@@ -27,7 +27,7 @@ namespace MusicPlayer {
 //        private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
 //#endregion
 
-        public SongList(List<string> paths, string baseDirectory, string search) {
+        public SongList(List<MusicFile> paths, string baseDirectory, string search) {
             InitializeComponent();
 
             _paths = paths;
@@ -68,7 +68,7 @@ namespace MusicPlayer {
 
                 Process p = new Process() {
                     StartInfo = new ProcessStartInfo() {
-                        FileName = lbi.DataContext.ToString() ?? "",
+                        FileName = ((MusicFile)lbi.DataContext).Filepath,
                         WindowStyle = ProcessWindowStyle.Minimized
                     }
                 };
@@ -90,7 +90,7 @@ namespace MusicPlayer {
         }
 
         //Set the Paths variable directly from a list of paths
-        public void FillPaths(List<string> _paths, string songName) {
+        public void FillPaths(List<MusicFile> _paths, string songName) {
             SearchInput.Text = songName;
             this._paths = _paths;
         }
@@ -102,12 +102,12 @@ namespace MusicPlayer {
 
             SearchInput.Text = input;
 
-            List<string> files = Directory.GetFiles(songPath, "*", SearchOption.AllDirectories).Where(path => Hooker.ValidExtensions.Contains(Path.GetExtension(path).ToLower()) || (Hooker.IsShortcut(path) && Hooker.ValidExtensions.Contains(Path.GetExtension(Hooker.ResolveShortcut(path))))).ToList();
-
-            List<string> matchingFiles = new List<string>();
-            foreach(string s in files) {
-                if(Regex.Match(Path.GetFileNameWithoutExtension(s).ToLower(), input.ToLower()).Success) {
-                    matchingFiles.Add(s);
+            List<MusicFile> files = new List<MusicFile>();
+            List<MusicFile> matchingFiles = new List<MusicFile>();
+            
+            foreach(MusicFile mf in files) {
+                if(Regex.Match(Path.GetFileNameWithoutExtension(mf.Filepath).ToLower(), input.ToLower()).Success) {
+                    matchingFiles.Add(mf);
                 }
             }
 
@@ -116,6 +116,7 @@ namespace MusicPlayer {
                 SearchList.ItemsSource = null;
                 SearchList.ItemsSource = SongSource;
                 return; }
+
             _paths = matchingFiles;
         }
 
@@ -128,7 +129,7 @@ namespace MusicPlayer {
 
                 var LBI = new ListBoxItem {
                     IsTabStop = true,
-                    Content = Path.GetFileNameWithoutExtension(Regex.Match(pt, @"(.+)( - Shortcut\.lnk)").Success ? pt.Substring(0, pt.Length - 15) : pt),
+                    Content = Path.GetFileNameWithoutExtension(pt.Filepath),
                     DataContext = pt,
                 };
 
@@ -137,7 +138,7 @@ namespace MusicPlayer {
                 LBI.MouseDoubleClick += (sender, e) => {
                     Process pa = new Process() {
                         StartInfo = new ProcessStartInfo() {
-                            FileName = pt,
+                            FileName = pt.Filepath,
                             WindowStyle = ProcessWindowStyle.Minimized
                         }
                     };
