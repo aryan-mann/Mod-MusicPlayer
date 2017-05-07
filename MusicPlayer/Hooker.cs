@@ -5,13 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using AudioSwitcher.AudioApi;
-using AudioSwitcher.AudioApi.CoreAudio;
-using AudioSwitcher.AudioApi.Observables;
 using ModuleAPI;
 
 namespace MusicPlayer {
@@ -37,19 +35,19 @@ namespace MusicPlayer {
 
         //Instance of the SongList window
         SongList _slInstance;
-        private CoreAudioDevice audioDevice;
+        private bool _isRadioRunning = false;
+        private List<string> _songs = null;
+        private string _lastPlayedSong = null;
+        private string _randomSong => _songs[_r.Next(0, _songs.Count)];
 
-        public Hooker() {
-            Task.Factory.StartNew(() => audioDevice = new CoreAudioController().DefaultPlaybackDevice);
-        }
-        
+
         //Setup commands for Project Butler
         public override Dictionary<string, Regex> RegisteredCommands => new Dictionary<string, Regex>() {
             ["specific"] = new Regex("^(play|play song|song) (?<song>.+)$"),
             ["random"] = new Regex("^(anything|something|random|any|whatever|music)$"),
             ["list all"] = new Regex("^list( all)?$"),
-            ["volume"] = new Regex("^vol(ume)? (?<action>up|down|mute|zero|full|min|max)$"),
-            ["set volume"] = new Regex(@"^set vol(ume)? (?<volume>\d{1,3})$")
+            ["start radio"] = new Regex("radio on"),
+            ["end radio"] = new Regex("radio off")
         };
 
         //These extensions will be recognized as valid music files
@@ -59,70 +57,95 @@ namespace MusicPlayer {
 
         //Project Butler command hook
         public override void OnCommandRecieved(Command cmd) {
-            
+
+            if (_songs == null) {
+                _songs = GetSongs();
+            }
+
             if(cmd.LocalCommand == "random") {
                 PlayRandom();
-            } else if(cmd.LocalCommand == "specific") {
+                return;
+            }
+
+            if(cmd.LocalCommand == "specific") {
                 string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["song"].Value.ToString();
                 if(string.IsNullOrWhiteSpace(song)) { return; }
 
                 PlayThis(song, cmd.IsLocalCommand);
-            } else if(cmd.LocalCommand == "list all") {
+                return;
+            }
 
-                if (cmd.IsLocalCommand) {
+            if(cmd.LocalCommand == "list all") {
+
+                if(cmd.IsLocalCommand) {
                     DisplaySongList();
-                }
-                else {
+                } else {
                     string text = "";
                     var songs = GetSongs();
 
-                    for (int i = 0; i < songs.Count; i++) {
+                    for(int i = 0; i < songs.Count; i++) {
                         text += $"{i}. {Path.GetFileNameWithoutExtension(Regex.Match(songs[i], @"(.+)( - Shortcut\.lnk)").Success ? songs[i].Substring(0, songs[i].Length - 15) : songs[i])}\n";
                     }
                     cmd.Respond(text);
                 }
 
-            } else if(cmd.LocalCommand == "volume") {
-                HandleVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["action"].Value);
-                cmd.Respond($@"Volume has been set to {audioDevice.Volume}");
-            } else if (cmd.LocalCommand == "set volume") {
-                SetVolume(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["volume"].Value);
-                cmd.Respond($@"Volume has been set to {audioDevice.Volume}");
+                return;
             }
+
+            if(cmd.LocalCommand == "start radio") {
+                StartRadio();
+                return;
+            }
+
+            if(cmd.LocalCommand == "end radio") {
+                StopRadio();
+                return;
+            }
+
         }
 
-        public void HandleVolume(string whatDo) {
-            if (audioDevice.State != DeviceState.Active || audioDevice == null) { return; }
+        #region Radio
 
-            try {
-                switch (whatDo) {
-                    case "up": audioDevice.Volume += 10;
-                        break;
-                    case "down": audioDevice.Volume -= 10;
-                        break;
-                    case "mute": audioDevice.ToggleMute();
-                        break;
-                    case "zero":
-                    case "min": audioDevice.Volume = 0;
-                        break;
-                    case "full":
-                    case "max": audioDevice.Volume = 100;
-                        break;
+        #region Radio
+
+        private void StartRadio() {
+            _isRadioRunning = true;
+            RadioLoop();
+        }
+
+        private void RadioLoop() {
+
+            if(!_isRadioRunning) { return; }
+
+            string chosenSongPath = _randomSong;
+            string resolvedPath = ResolveShortcut(chosenSongPath);
+            TagLib.File f = TagLib.File.Create(resolvedPath);
+
+            double timer = f.Properties.Duration.TotalSeconds;
+            Process pa = new Process() {
+                StartInfo =  new ProcessStartInfo() {
+                    FileName = resolvedPath,
+                    WindowStyle =  ProcessWindowStyle.Minimized
                 }
-            } catch { /* Bad Bad Practice :p */ }
+            };
+            pa.Start();
+            _lastPlayedSong = resolvedPath;
+
+            var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
+            Task.Factory.StartNew(() => {  }).ContinueWith(task => {
+                Task.Delay((int) timer * 1000).Wait();
+                RadioLoop();
+            }, scheduler);
         }
 
-        public void SetVolume(string vol) {
-            if(audioDevice.State != DeviceState.Active || audioDevice == null) { return; }
-
-            int iVol;
-            if(!int.TryParse(vol, out iVol)) { return; }
-
-            if(iVol < 0) { iVol = 0; }
-            if(iVol > 100) { iVol = 100;}
-
-            audioDevice.Volume = iVol;
+        private void StopRadio() {
+            _isRadioRunning = false;
         }
+
+        #endregion
+
+        #endregion
+
 
         private List<string> GetSongs() {
             string songPath = Path.Combine(BaseDirectory, "Songs");
@@ -183,6 +206,7 @@ namespace MusicPlayer {
                     };
                     pa.Start();
                 }
+                _lastPlayedSong = matchingFiles[0];
             }
         }
 
