@@ -1,10 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -12,146 +16,74 @@ namespace MusicPlayer {
 
     public partial class SongList : Window {
 
-        //Locations of all songs
-        List<MusicFile> _paths;
-        //ItemSource
-        List<ListBoxItem> SongSource = new List<ListBoxItem>();
-        //Where to search for songs
-        string BaseDirectory { get; set; }
-
-        //        #region Programmatically Defined Colors
-//        private static SolidColorBrush DarkGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#232425");
-//        private static SolidColorBrush LightGrey { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#4D4E4F");
-//        private static SolidColorBrush CreamWhite { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#F1F1F1");
-//        private static SolidColorBrush DarkLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#24AB93");
-//        private static SolidColorBrush LightLime { get; } = (SolidColorBrush) new BrushConverter().ConvertFrom("#03DC8D");
-//#endregion
-
-        public SongList(List<MusicFile> paths, string baseDirectory, string search) {
+        public SongList() {
             InitializeComponent();
 
-            _paths = paths;
-            SearchInput.Text = search;
-            BaseDirectory = baseDirectory;
+            Loaded += (sender, e) => CenterScreen();
+            Deactivated += (sender, e) => Hide();
+            Activated += (sender, args) => Show();
+        }
+        
+        public bool Ready { get; private set; }
+        private static string SongDirectory => Path.Combine(Hooker.InitialDirectory, "Songs");
 
-            Loaded += SongList_Loaded;
-            SearchInput.KeyDown += SearchInput_KeyDown;
-            SearchList.KeyDown += SearchList_KeyDown;
-            KeyDown += SongList_KeyDown;
+        public event EventHandler SongsLoaded;
 
-            Deactivated += (sender, e) => {
-                Close();
-            };
+        /// <summary>
+        /// List of all loaded songs
+        /// </summary>
+        public static List<MusicFile> LoadedSongs { get; set; } = new List<MusicFile>();
+
+        /// <summary>
+        /// List of all requested songs
+        /// </summary>
+        public BindingList<MusicFile> SongSource { get; private set; } = new BindingList<MusicFile>();
+        
+        public async Task LoadAllSongs() {
+            if (!Directory.Exists(SongDirectory)) {
+                Directory.CreateDirectory(SongDirectory);
+                //TODO: Check for permissions
+            }
+
+            LoadedSongs = LoadedSongs ?? new List<MusicFile>();
+            LoadedSongs.Clear();
+
+            IEnumerable<string> files = null;
+            files = Directory.EnumerateFiles(SongDirectory, "*", SearchOption.AllDirectories);
+
+            List<Task<MusicFile>> fileTasks = files.Select(MusicFile.FromFileAsync).ToList();
+            MusicFile[] musicFiles = await Task.WhenAll(fileTasks);
+
+            LoadedSongs = musicFiles.ToList();
+            Ready = true;
+
+            SongsLoaded?.Invoke(this, EventArgs.Empty);
+        }
+        public async Task RefreshSongs() {
+            await LoadAllSongs();
         }
 
-        //Set the position and size of the SongList window
-        private void SongList_Loaded(object sender, RoutedEventArgs e) {
+        public void ExecuteSearchQuery(SearchQuery sq) {
+            SongSource = new BindingList<MusicFile>(LoadedSongs.Where(f => 
+                    (string.IsNullOrWhiteSpace(sq.Title) || f.Title.StartsWith(sq.Title, StringComparison.CurrentCultureIgnoreCase)) &&
+                    (string.IsNullOrWhiteSpace(sq.Artist) || f.Artist.StartsWith(sq.Artist, StringComparison.CurrentCultureIgnoreCase)) &&
+                    (string.IsNullOrWhiteSpace(sq.Album) || f.Album.StartsWith(sq.Album, StringComparison.CurrentCultureIgnoreCase)) &&
+                    (string.IsNullOrWhiteSpace(sq.Extension) || f.Extension.StartsWith(sq.Extension, StringComparison.CurrentCultureIgnoreCase))
+            ).ToList());
+            
+        }
+        private void CenterScreen() {
             Left = SystemParameters.PrimaryScreenWidth - Width;
             Height = SystemParameters.PrimaryScreenHeight;
             Top = 0;
-
-            FillList();
-        }
-
-        //Close the window when escape is pressed while window is active
-        private void SongList_KeyDown(object sender, KeyEventArgs e) {
-            if(e.Key == Key.Escape) {
-                Hide();
-            }
         }
         
-        //Play the song selected in the SongList window
-        private void SearchList_KeyDown(object sender, KeyEventArgs e) {
-            if(e.Key == Key.Enter) {
-                ListBoxItem lbi = (ListBoxItem) SearchList.SelectedItem;
-                if(lbi == null) { return; }
+    }
 
-                Process p = new Process() {
-                    StartInfo = new ProcessStartInfo() {
-                        FileName = ((MusicFile)lbi.DataContext).Filepath,
-                        WindowStyle = ProcessWindowStyle.Minimized
-                    }
-                };
-                p.Start();
-                Hide();
-            }
-        }
-
-        //Filter songs from the base directory when enter is pressed while searching
-        private void SearchInput_KeyDown(object sender, KeyEventArgs e) {
-            if(e.Key == Key.Enter) {
-                SongSource.Clear();
-                SearchList.ItemsSource = null;
-                SearchList.ItemsSource = SongSource;
-
-                FillPaths(SearchInput.Text);
-                FillList();
-            }
-        }
-
-        //Set the Paths variable directly from a list of paths
-        public void FillPaths(List<MusicFile> _paths, string songName) {
-            SearchInput.Text = songName;
-            this._paths = _paths;
-        }
-        
-        //Search for songs in the base directory and then fill the Paths variable
-        public void FillPaths(string input) {
-            string songPath = Path.Combine(BaseDirectory, "Songs");
-            if(!Directory.Exists(songPath)) { Directory.CreateDirectory(songPath); return; }
-
-            SearchInput.Text = input;
-
-            List<MusicFile> files = new List<MusicFile>();
-            List<MusicFile> matchingFiles = new List<MusicFile>();
-            
-            foreach(MusicFile mf in files) {
-                if(Regex.Match(Path.GetFileNameWithoutExtension(mf.Filepath).ToLower(), input.ToLower()).Success) {
-                    matchingFiles.Add(mf);
-                }
-            }
-
-            if(files.Count == 0) {
-                SongSource.Clear();
-                SearchList.ItemsSource = null;
-                SearchList.ItemsSource = SongSource;
-                return; }
-
-            _paths = matchingFiles;
-        }
-
-        //Foreach item in the Paths list, create an entry in the songs list and format the name
-        public void FillList() {
-            SongSource.Clear();
-            
-            //Design of the list items
-            _paths.ForEach(pt => {
-
-                var LBI = new ListBoxItem {
-                    IsTabStop = true,
-                    Content = Path.GetFileNameWithoutExtension(pt.Filepath),
-                    DataContext = pt,
-                };
-
-
-
-                LBI.MouseDoubleClick += (sender, e) => {
-                    Process pa = new Process() {
-                        StartInfo = new ProcessStartInfo() {
-                            FileName = pt.Filepath,
-                            WindowStyle = ProcessWindowStyle.Minimized
-                        }
-                    };
-                    pa.Start();
-                    Close();
-                };
-
-                SongSource.Add(LBI);
-            });
-
-            SearchList.ItemsSource = null;
-            SearchList.ItemsSource = SongSource;
-        }
-
+    public class SearchQuery {
+        public string Title;
+        public string Artist;
+        public string Album;
+        public string Extension;
     }
 }
