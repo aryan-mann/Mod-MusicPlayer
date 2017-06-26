@@ -22,21 +22,27 @@ namespace MusicPlayer {
         public string Title => MetadataFile.Tag.Title ?? Path.GetFileNameWithoutExtension(Filepath);
         public string Artist => MetadataFile.Tag.Performers?.FirstOrDefault() ?? "";
         public string Album => MetadataFile.Tag.Album ?? "";
-        public string[] Genres => MetadataFile.Tag.Genres ?? new string[]{};
+        public string[] Genres => MetadataFile.Tag.Genres ?? new string[] { };
 
         public delegate void OnFilePlayed(MusicFile playedFile);
         public static event OnFilePlayed FilePlayed;
+
+        public static List<MusicFile> LoadedFiles { get; set; } = new List<MusicFile>();
 
         //These extensions will be recognized as valid music files
         public static string[] ValidExtensions { get; } = {
             ".mp3", ".m4a", ".ogg", ".wav", ".flv", ".wmv", ".ink", ".Ink", ".flac"
         };
 
+        private MusicFile() {
+
+        }
+
         public static MusicFile FromFile(string path) {
-            if (IsShortcut(path)) {
+            if(IsShortcut(path)) {
                 path = ResolveShortcut(path);
             }
-            
+
             if(!File.Exists(path) || !ValidExtensions.Contains(Path.GetExtension(path)?.ToLower())) { return null; }
             MusicFile mf = new MusicFile() {
                 Filepath = path
@@ -45,12 +51,11 @@ namespace MusicPlayer {
             mf.MetadataFile = TagLib.File.Create(mf.Filepath);
             return mf;
         }
-
         public static async Task<MusicFile> FromFileAsync(string path) {
             if(!File.Exists(path)) { return null; }
             bool isShortcut = IsShortcut(path);
 
-            if (isShortcut) {
+            if(isShortcut) {
                 path = ResolveShortcut(path);
             }
 
@@ -58,15 +63,13 @@ namespace MusicPlayer {
                 Filepath = path
             };
 
-            mf.MetadataFile = await Task.Run(()=> TagLib.File.Create(mf.Filepath));
+            mf.MetadataFile = await Task.Run(() => TagLib.File.Create(mf.Filepath));
             return mf;
         }
 
-        private MusicFile() {
-            
-        }
-
         public async Task PlayAsync() {
+
+            if(string.IsNullOrWhiteSpace(Filepath)) { return; }
 
             await Task.Run(() => {
                 Process p = new Process() {
@@ -85,7 +88,7 @@ namespace MusicPlayer {
         private static bool IsShortcut(string path) {
             string directory = Path.GetDirectoryName(path);
             string file = Path.GetFileName(path);
-            
+
             bool returnValue = false;
 
             Thread thr = new Thread(new ThreadStart(() => {
@@ -118,10 +121,31 @@ namespace MusicPlayer {
             thr.SetApartmentState(ApartmentState.STA);
             thr.Start();
             thr.Join();
-                
+
             return linkPath;
         }
 
+        public static async Task<List<MusicFile>> ExecuteSearchQuery(SearchQuery sq) {
+            return await Task.Run(() => {
+                List<MusicFile> results = new List<MusicFile>();
+
+                if(sq.Equals(SearchQuery.Empty)) {
+                    MusicFile.LoadedFiles.ForEach(m => results.Add(m));
+                } else {
+                    foreach(MusicFile f in MusicFile.LoadedFiles) {
+                        if((string.IsNullOrWhiteSpace(sq.Title) || f.Title.StartsWith(sq.Title, StringComparison.CurrentCultureIgnoreCase)) &&
+                            (string.IsNullOrWhiteSpace(sq.Artist) || f.Artist.StartsWith(sq.Artist, StringComparison.CurrentCultureIgnoreCase)) &&
+                            (string.IsNullOrWhiteSpace(sq.Album) || f.Album.StartsWith(sq.Album, StringComparison.CurrentCultureIgnoreCase)) &&
+                            (string.IsNullOrWhiteSpace(sq.Extension) || f.Extension.StartsWith(sq.Extension, StringComparison.CurrentCultureIgnoreCase))) {
+                            results.Add(f);
+                        }
+                    }
+                }
+                return results;
+            });
+        }
+
+        public override string ToString() => Title;
     }
 
 }

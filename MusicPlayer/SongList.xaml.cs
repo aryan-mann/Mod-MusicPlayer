@@ -22,18 +22,30 @@ namespace MusicPlayer {
             Loaded += (sender, e) => CenterScreen();
             Deactivated += (sender, e) => Hide();
             Activated += (sender, args) => Show();
+
+            KeyDown += (sender, args) => {
+                if(args.Key == Key.Escape) { Hide(); }
+            };
+
+            SearchList.MouseDoubleClick += async (sender, args) => { await PlaySelectedSong(); };
+            SearchList.KeyDown += async (sender, args) => { if(args.Key == Key.Enter) { await PlaySelectedSong(); } };
         }
-        
+
+        public SearchQuery LastSearchQuery { get; private set; }
+
+        private async Task PlaySelectedSong() {
+            MusicFile mf = SearchList.SelectedItem as MusicFile;
+
+            if (mf != null) {
+                await mf.PlayAsync();
+                Hide();
+            } else { await Task.CompletedTask; }
+
+        }
+
         public bool Ready { get; private set; }
         private static string SongDirectory => Path.Combine(Hooker.InitialDirectory, "Songs");
-
-        public event EventHandler SongsLoaded;
-
-        /// <summary>
-        /// List of all loaded songs
-        /// </summary>
-        public static List<MusicFile> LoadedSongs { get; set; } = new List<MusicFile>();
-
+        
         /// <summary>
         /// List of all requested songs
         /// </summary>
@@ -45,8 +57,8 @@ namespace MusicPlayer {
                 //TODO: Check for permissions
             }
 
-            LoadedSongs = LoadedSongs ?? new List<MusicFile>();
-            LoadedSongs.Clear();
+            MusicFile.LoadedFiles = MusicFile.LoadedFiles ?? new List<MusicFile>();
+            MusicFile.LoadedFiles.Clear();
 
             IEnumerable<string> files = null;
             files = Directory.EnumerateFiles(SongDirectory, "*", SearchOption.AllDirectories);
@@ -54,24 +66,22 @@ namespace MusicPlayer {
             List<Task<MusicFile>> fileTasks = files.Select(MusicFile.FromFileAsync).ToList();
             MusicFile[] musicFiles = await Task.WhenAll(fileTasks);
 
-            LoadedSongs = musicFiles.ToList();
+            MusicFile.LoadedFiles = musicFiles.ToList();
             Ready = true;
-
-            SongsLoaded?.Invoke(this, EventArgs.Empty);
         }
         public async Task RefreshSongs() {
             await LoadAllSongs();
         }
 
-        public void ExecuteSearchQuery(SearchQuery sq) {
-            SongSource = new BindingList<MusicFile>(LoadedSongs.Where(f => 
-                    (string.IsNullOrWhiteSpace(sq.Title) || f.Title.StartsWith(sq.Title, StringComparison.CurrentCultureIgnoreCase)) &&
-                    (string.IsNullOrWhiteSpace(sq.Artist) || f.Artist.StartsWith(sq.Artist, StringComparison.CurrentCultureIgnoreCase)) &&
-                    (string.IsNullOrWhiteSpace(sq.Album) || f.Album.StartsWith(sq.Album, StringComparison.CurrentCultureIgnoreCase)) &&
-                    (string.IsNullOrWhiteSpace(sq.Extension) || f.Extension.StartsWith(sq.Extension, StringComparison.CurrentCultureIgnoreCase))
-            ).ToList());
-            
+        public async void UseSearchQuery(SearchQuery sq) {
+            LastSearchQuery = sq;
+            SongSource.Clear();
+
+            foreach (MusicFile file in await MusicFile.ExecuteSearchQuery(sq)) {
+                SongSource.Add(file);
+            }
         }
+
         private void CenterScreen() {
             Left = SystemParameters.PrimaryScreenWidth - Width;
             Height = SystemParameters.PrimaryScreenHeight;
@@ -85,5 +95,39 @@ namespace MusicPlayer {
         public string Artist;
         public string Album;
         public string Extension;
+
+        public bool IsEmpty => string.IsNullOrWhiteSpace(Title) && string.IsNullOrWhiteSpace(Artist) && string.IsNullOrWhiteSpace(Album) && string.IsNullOrWhiteSpace(Extension);
+
+        public SearchQuery() { }
+
+        public static SearchQuery Generate(string text) {
+            SearchQuery sq = new SearchQuery();
+            
+            MatchCollection argsMatch = Regex.Matches(text, "((?<letter>r|a|e){(?<content>.+?)})+");
+            foreach (Match match in argsMatch) {
+                string letter = match.Groups["letter"].Value;
+                string content = match.Groups["content"].Value;
+
+                switch (letter) {
+                    case "r": sq.Artist = content;
+                        break;
+                    case "a": sq.Album = content;
+                        break;
+                    case "e": sq.Extension = content;
+                        break;
+                }
+            }
+
+            if (argsMatch.Count > 0) {
+                Match textMatch = Regex.Match(text, "^(?<!{)(?<title>\\w+|\\s+)+(?= (r|a|e){)");
+                sq.Title = textMatch.Groups["title"].Value.Trim();
+            } else {
+                sq.Title = text.Trim();
+            }
+
+            return sq;
+        }
+
+        public static SearchQuery Empty => new SearchQuery();
     }
 }
