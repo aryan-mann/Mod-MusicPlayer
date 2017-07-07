@@ -68,12 +68,6 @@ namespace MusicPlayer {
 
         public override async Task OnInitialized() {
 
-            UiThread.Invoke(() => {
-                _instance = new SongList();
-            });
-
-            await _instance.LoadAllSongs();
-
             MusicFile.FilePlayed += file => {
                 LastPlayedSong = file;
             };
@@ -83,6 +77,15 @@ namespace MusicPlayer {
         //Project Butler command hook
         public override async Task OnCommandRecieved(Command cmd) {
 
+            if (_instance == null) {
+                UiThread.Invoke(() => {
+                    _instance = new SongList();
+                });
+                cmd.Respond("Loading songs..");
+                await _instance.LoadAllSongs();
+                cmd.Respond("Songs loaded!");
+            }
+
             if(!_instance.Ready) {
                 cmd.Respond("Music player not ready.");
                 return;
@@ -91,12 +94,7 @@ namespace MusicPlayer {
             if(cmd.LocalCommand == "List") {
 
                 if(cmd.IsLocalCommand) {
-
-                    UiThread.Invoke(() => {
-                        _instance.UseSearchQuery(SearchQuery.Empty);
-                        _instance.Show();
-                    });
-
+                    PlayOrShowSongList(SearchQuery.Empty);
                 } else {
                     string output = $"Songs:- \n\n\n";
                     for(var i = 0; i < MusicFile.LoadedFiles.Count; i++) {
@@ -154,10 +152,7 @@ namespace MusicPlayer {
                 SearchQuery sq = SearchQuery.Generate(query);
 
                 if(cmd.IsLocalCommand) {
-                    UiThread.Invoke(() => {
-                        _instance.UseSearchQuery(sq);
-                        _instance.Show();
-                    });
+                    PlayOrShowSongList(sq);
                     return;
                 } else {
                     List<MusicFile> results = await MusicFile.ExecuteSearchQuery(sq);
@@ -187,11 +182,8 @@ namespace MusicPlayer {
                 string artist = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["artist"].Value.ToLower();
 
                 if(cmd.IsLocalCommand) {
-                    UiThread.Invoke(() => {
-                        _instance.UseSearchQuery(new SearchQuery() {
-                            Artist = artist
-                        });
-                        _instance.Show();
+                    PlayOrShowSongList(new SearchQuery() {
+                        Artist = artist
                     });
                 } else {
                     string output = $"Songs by {artist}:-\n";
@@ -212,11 +204,8 @@ namespace MusicPlayer {
                 string album = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["album"].Value.ToLower();
 
                 if(cmd.IsLocalCommand) {
-                    UiThread.Invoke(() => {
-                        _instance.UseSearchQuery(new SearchQuery() {
-                            Album = album
-                        });
-                        _instance.Show();
+                    PlayOrShowSongList(new SearchQuery() {
+                        Album = album
                     });
                 } else {
                     string output = $"Songs on {album}:-\n";
@@ -292,6 +281,16 @@ namespace MusicPlayer {
             #endregion
         }
 
+        private async void PlayOrShowSongList(SearchQuery sq) {
+            List<MusicFile> files = await MusicFile.ExecuteSearchQuery(sq);
+            if(files.Count == 1) { await files[0].PlayAsync(); return; }
+
+            UiThread.Invoke(() => {
+                _instance.Show();
+                _instance.UseSongList(sq, files);
+            });
+        }
+
         private void SleepTimerOnElapsed(object sender, ElapsedEventArgs elapsedEventArgs) {
             _radioTimer.Stop();
         }
@@ -306,8 +305,8 @@ namespace MusicPlayer {
             await mf?.PlayAsync();
         }
 
-        private TimerPlus _radioTimer = new TimerPlus();
-        private TimerPlus _sleepTimer = new TimerPlus();
+        private readonly TimerPlus _radioTimer = new TimerPlus();
+        private readonly TimerPlus _sleepTimer = new TimerPlus();
         private bool _runRadio = false;
         private async Task StartRadio() {
             _runRadio = true;

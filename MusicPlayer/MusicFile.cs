@@ -145,7 +145,7 @@ namespace MusicPlayer {
             });
         }
 
-        public override string ToString() => Title;
+        public override string ToString() => $"{Title}{(!string.IsNullOrWhiteSpace(Artist) ? $" | {Artist}" : "")}";
     }
 
 }
