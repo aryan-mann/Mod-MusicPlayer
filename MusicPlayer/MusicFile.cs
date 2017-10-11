@@ -44,7 +44,7 @@ namespace MusicPlayer {
             }
 
             if(!File.Exists(path) || !ValidExtensions.Contains(Path.GetExtension(path)?.ToLower())) { return null; }
-            MusicFile mf = new MusicFile() {
+            var mf = new MusicFile() {
                 Filepath = path
             };
 
@@ -53,13 +53,13 @@ namespace MusicPlayer {
         }
         public static async Task<MusicFile> FromFileAsync(string path) {
             if(!File.Exists(path)) { return null; }
-            bool isShortcut = IsShortcut(path);
+            var isShortcut = IsShortcut(path);
 
             if(isShortcut) {
                 path = ResolveShortcut(path);
             }
 
-            MusicFile mf = new MusicFile() {
+            var mf = new MusicFile() {
                 Filepath = path
             };
 
@@ -72,7 +72,7 @@ namespace MusicPlayer {
             if(string.IsNullOrWhiteSpace(Filepath)) { return; }
 
             await Task.Run(() => {
-                Process p = new Process() {
+                var p = new Process() {
                     StartInfo = new ProcessStartInfo() {
                         WindowStyle = ProcessWindowStyle.Minimized,
                         FileName = Filepath
@@ -86,15 +86,15 @@ namespace MusicPlayer {
 
         //Checks to see if a file is a shortcut (.Ink extension)
         private static bool IsShortcut(string path) {
-            string directory = Path.GetDirectoryName(path);
-            string file = Path.GetFileName(path);
+            var directory = Path.GetDirectoryName(path);
+            var file = Path.GetFileName(path);
 
-            bool returnValue = false;
+            var returnValue = false;
 
-            Thread thr = new Thread(new ThreadStart(() => {
-                Shell32.Shell shell = new Shell32.Shell();
-                Shell32.Folder folder = shell.NameSpace(directory);
-                Shell32.FolderItem folderItem = folder.ParseName(file);
+            var thr = new Thread(new ThreadStart(() => {
+                var shell = new Shell32.Shell();
+                var folder = shell.NameSpace(directory);
+                var folderItem = folder.ParseName(file);
 
                 returnValue = folderItem?.IsLink ?? false;
             }));
@@ -106,15 +106,15 @@ namespace MusicPlayer {
         }
         //Get the real path of a shortcut file
         private static string ResolveShortcut(string path) {
-            string directory = Path.GetDirectoryName(path);
-            string file = Path.GetFileName(path);
+            var directory = Path.GetDirectoryName(path);
+            var file = Path.GetFileName(path);
 
-            string linkPath = file;
+            var linkPath = file;
 
-            Thread thr = new Thread(new ThreadStart(() => {
-                Shell32.Shell shell = new Shell32.Shell();
-                Shell32.Folder folder = shell.NameSpace(directory);
-                Shell32.FolderItem folderItem = folder.ParseName(file);
+            var thr = new Thread(new ThreadStart(() => {
+                var shell = new Shell32.Shell();
+                var folder = shell.NameSpace(directory);
+                var folderItem = folder.ParseName(file);
 
                 linkPath = ((Shell32.ShellLinkObject) folderItem.GetLink).Path;
             }));
@@ -127,12 +127,12 @@ namespace MusicPlayer {
 
         public static async Task<List<MusicFile>> ExecuteSearchQuery(SearchQuery sq) {
             return await Task.Run(() => {
-                List<MusicFile> results = new List<MusicFile>();
+                var results = new List<MusicFile>();
 
                 if(sq.Equals(SearchQuery.Empty)) {
                     MusicFile.LoadedFiles.ForEach(m => results.Add(m));
                 } else {
-                    foreach(MusicFile f in MusicFile.LoadedFiles) {
+                    foreach(var f in MusicFile.LoadedFiles) {
                         if((string.IsNullOrWhiteSpace(sq.Title) || f.Title.StartsWith(sq.Title, StringComparison.CurrentCultureIgnoreCase)) &&
                             (string.IsNullOrWhiteSpace(sq.Artist) || f.Artist.StartsWith(sq.Artist, StringComparison.CurrentCultureIgnoreCase)) &&
                             (string.IsNullOrWhiteSpace(sq.Album) || f.Album.StartsWith(sq.Album, StringComparison.CurrentCultureIgnoreCase)) &&

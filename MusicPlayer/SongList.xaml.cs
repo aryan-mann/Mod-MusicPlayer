@@ -51,7 +51,7 @@ namespace MusicPlayer {
         public SearchQuery LastSearchQuery { get; private set; }
 
         private async Task PlaySelectedSong() {
-            MusicFile mf = SearchList.SelectedItem as MusicFile;
+            var mf = SearchList.SelectedItem as MusicFile;
 
             if(mf != null) {
                 await mf.PlayAsync();
@@ -81,8 +81,8 @@ namespace MusicPlayer {
             IEnumerable<string> files = null;
             files = Directory.EnumerateFiles(SongDirectory, "*", SearchOption.AllDirectories);
 
-            List<Task<MusicFile>> fileTasks = files.Select(MusicFile.FromFileAsync).ToList();
-            MusicFile[] musicFiles = await Task.WhenAll(fileTasks);
+            var fileTasks = files.Select(MusicFile.FromFileAsync).ToList();
+            var musicFiles = await Task.WhenAll(fileTasks);
 
             MusicFile.LoadedFiles = musicFiles.ToList();
             Ready = true;
@@ -95,7 +95,7 @@ namespace MusicPlayer {
             LastSearchQuery = sq;
             SongSource.Clear();
 
-            foreach(MusicFile file in await MusicFile.ExecuteSearchQuery(sq)) {
+            foreach(var file in await MusicFile.ExecuteSearchQuery(sq)) {
                 SongSource.Add(file);
             }
         }
@@ -126,12 +126,12 @@ namespace MusicPlayer {
         public SearchQuery() { }
 
         public static SearchQuery Generate(string text) {
-            SearchQuery sq = new SearchQuery();
+            var sq = new SearchQuery();
 
-            MatchCollection argsMatch = Regex.Matches(text, "((?<letter>r|a|e){(?<content>.+?)})+");
+            var argsMatch = Regex.Matches(text, "((?<letter>r|a|e){(?<content>.+?)})+");
             foreach(Match match in argsMatch) {
-                string letter = match.Groups["letter"].Value;
-                string content = match.Groups["content"].Value;
+                var letter = match.Groups["letter"].Value;
+                var content = match.Groups["content"].Value;
 
                 switch(letter) {
                     case "r":
@@ -147,7 +147,7 @@ namespace MusicPlayer {
             }
 
             if(argsMatch.Count > 0) {
-                Match textMatch = Regex.Match(text, "^(?<!{)(?<title>(\\w+|\\s+)+)(?= (r|a|e){)");
+                var textMatch = Regex.Match(text, "^(?<!{)(?<title>(\\w+|\\s+)+)(?= (r|a|e){)");
                 sq.Title = textMatch.Groups["title"].Value.Trim();
             } else {
                 sq.Title = text.Trim();

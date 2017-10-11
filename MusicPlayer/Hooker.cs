@@ -67,11 +67,9 @@ namespace MusicPlayer {
         };
 
         public override async Task OnInitialized() {
-
             MusicFile.FilePlayed += file => {
                 LastPlayedSong = file;
             };
-
         }
 
         //Project Butler command hook
@@ -96,7 +94,7 @@ namespace MusicPlayer {
                 if(cmd.IsLocalCommand) {
                     PlayOrShowSongList(SearchQuery.Empty);
                 } else {
-                    string output = $"Songs:- \n\n\n";
+                    var output = $"Songs:- \n\n\n";
                     for(var i = 0; i < MusicFile.LoadedFiles.Count; i++) {
                         output += $"[{i.ToString().PadLeft(3)}] {MusicFile.LoadedFiles[i]}\n";
                     }
@@ -107,7 +105,7 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "Choose") {
-                int numInt = int.Parse(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["choice"].Value);
+                var numInt = int.Parse(RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["choice"].Value);
 
                 if(numInt > MusicFile.LoadedFiles.Count - 1 || numInt < 0) {
                     cmd.Respond($"Song #{numInt} does not exist.");
@@ -148,18 +146,18 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "Search") {
-                string query = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["search"].Value;
-                SearchQuery sq = SearchQuery.Generate(query);
+                var query = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["search"].Value;
+                var sq = SearchQuery.Generate(query);
 
                 if(cmd.IsLocalCommand) {
                     PlayOrShowSongList(sq);
                     return;
                 } else {
-                    List<MusicFile> results = await MusicFile.ExecuteSearchQuery(sq);
+                    var results = await MusicFile.ExecuteSearchQuery(sq);
                     if(results.Count == 0) {
                         cmd.Respond($"No results found for {query}");
                     } else {
-                        MusicFile mf = results[0];
+                        var mf = results[0];
                         cmd.Respond($"Playing {mf}");
                         await mf.PlayAsync();
                     }
@@ -169,9 +167,9 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "Play Song") {
-                string song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["name"].Value.ToLower();
+                var song = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["name"].Value.ToLower();
 
-                MusicFile mf = MusicFile.LoadedFiles.FirstOrDefault(f => Regex.Match(f.Title.ToLower(), song).Success);
+                var mf = MusicFile.LoadedFiles.FirstOrDefault(f => Regex.Match(f.Title.ToLower(), song).Success);
                 if(mf == null) { cmd.Respond("Song not found."); return; }
 
                 await mf.PlayAsync();
@@ -179,19 +177,19 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "List Artist") {
-                string artist = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["artist"].Value.ToLower();
+                var artist = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["artist"].Value.ToLower();
 
                 if(cmd.IsLocalCommand) {
                     PlayOrShowSongList(new SearchQuery() {
                         Artist = artist
                     });
                 } else {
-                    string output = $"Songs by {artist}:-\n";
-                    List<MusicFile> files = await MusicFile.ExecuteSearchQuery(new SearchQuery() {
+                    var output = $"Songs by {artist}:-\n";
+                    var files = await MusicFile.ExecuteSearchQuery(new SearchQuery() {
                         Artist = artist
                     });
 
-                    for(int i = 0; i < files.Count; i++) {
+                    for(var i = 0; i < files.Count; i++) {
                         output += $"[{i.ToString().PadLeft(3)}] {files[i]}\n";
                     }
                     cmd.Respond(output);
@@ -201,19 +199,19 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "List Album") {
-                string album = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["album"].Value.ToLower();
+                var album = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["album"].Value.ToLower();
 
                 if(cmd.IsLocalCommand) {
                     PlayOrShowSongList(new SearchQuery() {
                         Album = album
                     });
                 } else {
-                    string output = $"Songs on {album}:-\n";
-                    List<MusicFile> files = await MusicFile.ExecuteSearchQuery(new SearchQuery() {
+                    var output = $"Songs on {album}:-\n";
+                    var files = await MusicFile.ExecuteSearchQuery(new SearchQuery() {
                         Artist = album
                     });
 
-                    for(int i = 0; i < files.Count; i++) {
+                    for(var i = 0; i < files.Count; i++) {
                         output += $"[{i.ToString().PadLeft(3)}] {files[i]}\n";
                     }
                     cmd.Respond(output);
@@ -241,8 +239,8 @@ namespace MusicPlayer {
                 if(_runRadio == false) { return; }
 
                 _radioTimer.Stop();
-                MusicFile file = RandomSong;
-                _radioTimer.Interval = file.Duration * 1000f;
+                var file = RandomSong;
+                _radioTimer.Interval = (file.Duration * 1000f) + 2000f;
                 await file?.PlayAsync();
                 _radioTimer.Start();
 
@@ -254,7 +252,7 @@ namespace MusicPlayer {
             #region Sleep
 
             if(cmd.LocalCommand == "Sleep") {
-                string seconds = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["seconds"].Value;
+                var seconds = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["seconds"].Value;
                 int secs;
                 if(string.IsNullOrWhiteSpace(seconds) || !int.TryParse(seconds, out secs)) { return; }
 
@@ -273,7 +271,7 @@ namespace MusicPlayer {
             }
 
             if(cmd.LocalCommand == "Get Sleep") {
-                string response = (_sleepTimer.Enabled == false) ? @"Sleep timer is inactive." : $"Remaining time: {_sleepTimer.RemainingTime}";
+                var response = (_sleepTimer.Enabled == false) ? @"Sleep timer is inactive." : $"Remaining time: {_sleepTimer.RemainingTime}";
                 cmd.Respond(response);
                 return;
             }
@@ -282,7 +280,7 @@ namespace MusicPlayer {
         }
 
         private async void PlayOrShowSongList(SearchQuery sq) {
-            List<MusicFile> files = await MusicFile.ExecuteSearchQuery(sq);
+            var files = await MusicFile.ExecuteSearchQuery(sq);
             if(files.Count == 1) { await files[0].PlayAsync(); return; }
 
             UiThread.Invoke(() => {
@@ -298,7 +296,7 @@ namespace MusicPlayer {
         private async void RadioSongCompletedAsync(object sender, System.Timers.ElapsedEventArgs e) {
             if(_runRadio == false) { return; }
 
-            MusicFile mf = RandomSong;
+            var mf = RandomSong;
             _radioTimer.Interval = mf.Duration * 1000d;
             _radioTimer.Start();
 
@@ -311,8 +309,8 @@ namespace MusicPlayer {
         private async Task StartRadio() {
             _runRadio = true;
 
-            MusicFile file = RandomSong;
-            double duration = file.Duration * 1000d;
+            var file = RandomSong;
+            var duration = file.Duration * 1000d;
             _radioTimer.Interval = duration;
 
             _radioTimer.Elapsed += RadioSongCompletedAsync;
