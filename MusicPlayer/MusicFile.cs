@@ -8,10 +8,24 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using CSCore.Codecs;
+using CSCore.Codecs.MP3;
+using CSCore.SoundOut;
 
 namespace MusicPlayer {
 
     public class MusicFile {
+
+        private static DirectSoundOut soundOut;
+        private static CodecFactory codecFactory;
+        static MusicFile() {
+            soundOut = new DirectSoundOut();
+            codecFactory = CodecFactory.Instance;
+
+            soundOut.Stopped += (sender, args) => {
+                FileFinishedPlaying?.Invoke(LastFilePlayed);
+            };
+        }
 
         public string Filepath { get; private set; }
         public string Extension => Path.GetExtension(Filepath);
@@ -24,15 +38,18 @@ namespace MusicPlayer {
         public string Album => MetadataFile.Tag.Album ?? "";
         public string[] Genres => MetadataFile.Tag.Genres ?? new string[] { };
 
-        public delegate void OnFilePlayed(MusicFile playedFile);
-        public static event OnFilePlayed FilePlayed;
-
-        public static List<MusicFile> LoadedFiles { get; set; } = new List<MusicFile>();
-
-        //These extensions will be recognized as valid music files
+        /// <summary>
+        ///  File extensions (codecs) that we support
+        /// </summary>
         public static string[] ValidExtensions { get; } = {
             ".mp3", ".m4a", ".ogg", ".wav", ".flv", ".wmv", ".ink", ".Ink", ".flac"
         };
+
+        public delegate void OnFilePlayed(MusicFile playedFile);
+        public static event OnFilePlayed FilePlayed;
+        public static event OnFilePlayed FileFinishedPlaying;
+
+        public static List<MusicFile> LoadedFiles { get; set; } = new List<MusicFile>();
 
         private MusicFile() {
 
@@ -67,24 +84,77 @@ namespace MusicPlayer {
             return mf;
         }
 
+        public static MusicFile LastFilePlayed;
+
         public async Task PlayAsync() {
 
             if(string.IsNullOrWhiteSpace(Filepath)) { return; }
-
+            
             await Task.Run(() => {
-                var p = new Process() {
-                    StartInfo = new ProcessStartInfo() {
-                        WindowStyle = ProcessWindowStyle.Minimized,
-                        FileName = Filepath
-                    }
-                };
-                p.Start();
+                var codec = codecFactory.GetCodec(Filepath);
+
+                if (soundOut.PlaybackState == PlaybackState.Playing || 
+                    soundOut.PlaybackState == PlaybackState.Paused) {
+                    soundOut.Stop();
+                }
+
+                soundOut.Initialize(codec);
+                soundOut.Play();
             });
 
+            LastFilePlayed = this;
             FilePlayed?.Invoke(this);
         }
 
-        //Checks to see if a file is a shortcut (.Ink extension)
+        public static async Task ResetAnd(Action act = null) {
+            await Task.Run(() => {
+                soundOut.Stop();
+
+                act?.Invoke();
+            });
+        }
+
+        public async Task StopAsync() {
+            await Task.Run(() => {
+                if (soundOut.PlaybackState == PlaybackState.Playing ||
+                    soundOut.PlaybackState == PlaybackState.Paused) {
+                    soundOut.Stop();
+                }
+            });
+        }
+
+        public async Task PauseAsync() {
+            await Task.Run(() => {
+                if (soundOut.PlaybackState == PlaybackState.Playing) {
+                    soundOut.Pause();
+                }
+            });
+        }
+
+        public async Task ResumeAsync() {
+            await Task.Run(() => {
+                if (soundOut.PlaybackState == PlaybackState.Paused && soundOut.PlaybackState != PlaybackState.Stopped) {
+                    soundOut.Resume();
+                }
+            });
+        }
+
+        public async Task ToggleAsync() {
+            switch (soundOut.PlaybackState) {
+                case PlaybackState.Paused:
+                    await ResumeAsync();
+                    break;
+                case PlaybackState.Playing:
+                    await PauseAsync();
+                    break;
+            }
+        }
+        
+        /// <summary>
+        /// Checks to see if path is a shortcut file (*.ink)
+        /// </summary>
+        /// <param name="path">The path to the file</param>
+        /// <returns>True if it's a shortcut</returns>
         private static bool IsShortcut(string path) {
             var directory = Path.GetDirectoryName(path);
             var file = Path.GetFileName(path);
@@ -104,7 +174,12 @@ namespace MusicPlayer {
 
             return returnValue;
         }
-        //Get the real path of a shortcut file
+
+        /// <summary>
+        /// Gets the actual filepath of a shortcut file (*.ink)
+        /// </summary>
+        /// <param name="path">The filepath of the shortcut file</param>
+        /// <returns>Actual filepath</returns>
         private static string ResolveShortcut(string path) {
             var directory = Path.GetDirectoryName(path);
             var file = Path.GetFileName(path);
@@ -125,6 +200,11 @@ namespace MusicPlayer {
             return linkPath;
         }
 
+        /// <summary>
+        /// Gets a list of music files that match the SearchQuery
+        /// </summary>
+        /// <param name="sq">The SearchQuery</param>
+        /// <returns></returns>
         public static async Task<List<MusicFile>> ExecuteSearchQuery(SearchQuery sq) {
             return await Task.Run(() => {
                 var results = new List<MusicFile>();
