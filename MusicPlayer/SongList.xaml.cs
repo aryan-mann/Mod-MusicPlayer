@@ -52,6 +52,10 @@ namespace MusicPlayer {
 
         public SearchQuery LastSearchQuery { get; private set; }
 
+        public void SetSearchQueryString(SearchQuery sq) {
+            SearchInput.Text = sq.ToString();
+        }
+
         private async Task PlaySelectedSong() {
             var mf = SearchList.SelectedItem as MusicFile;
 
@@ -98,6 +102,7 @@ namespace MusicPlayer {
 
         public async void UseSearchQuery(SearchQuery sq) {
             LastSearchQuery = sq;
+            SearchInput.Text = sq.ToString();
             SongSource.Clear();
 
             foreach (var file in await MusicFile.ExecuteSearchQuery(sq)) {
@@ -160,6 +165,10 @@ namespace MusicPlayer {
             }
 
             return sq;
+        }
+
+        public override string ToString() {
+            return $"{(!string.IsNullOrEmpty(Title) ? $"{Title} " : "")}{(!string.IsNullOrEmpty(Artist) ? $"r{{{Artist}}} " : "")}{(!string.IsNullOrEmpty(Album) ? $"a{{{Album}}} " : "")}{(!string.IsNullOrEmpty(Extension) ? $"e{{{Extension}}}" : "")}";
         }
 
         public static SearchQuery Empty => new SearchQuery();

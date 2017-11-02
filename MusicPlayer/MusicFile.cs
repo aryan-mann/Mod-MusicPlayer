@@ -93,11 +93,7 @@ namespace MusicPlayer {
             await Task.Run(() => {
                 var codec = codecFactory.GetCodec(Filepath);
 
-                if (soundOut.PlaybackState == PlaybackState.Playing || 
-                    soundOut.PlaybackState == PlaybackState.Paused) {
-                    soundOut.Stop();
-                }
-
+                soundOut.Stop();
                 soundOut.Initialize(codec);
                 soundOut.Play();
             });

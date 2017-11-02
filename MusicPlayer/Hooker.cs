@@ -1,23 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net.Configuration;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Threading;
-using CSCore.Codecs.MP3;
-using CSCore.SoundOut;
 using ModuleAPI;
-using MusicPlayer;
-using Timer = System.Timers.Timer;
 
 namespace MusicPlayer {
     [ApplicationHook]
@@ -66,6 +55,7 @@ namespace MusicPlayer {
             ["Pause"] = new Regex(@"^pause$", RegexOptions.IgnoreCase),
             ["Resume"] = new Regex(@"^resume$", RegexOptions.IgnoreCase),
             ["Toggle"] = new Regex(@"^toggle", RegexOptions.IgnoreCase),
+            ["Stop"] = new Regex(@"^stop$", RegexOptions.IgnoreCase),
 
             ["Radio"] = new Regex(@"^(?<command>stop|start) radio", RegexOptions.IgnoreCase),
             ["Skip Radio Song"] = new Regex(@"^skip$", RegexOptions.IgnoreCase),
@@ -160,6 +150,10 @@ namespace MusicPlayer {
                 var query = RegisteredCommands[cmd.LocalCommand].Match(cmd.UserInput).Groups["search"].Value;
                 var sq = SearchQuery.Generate(query);
 
+                UiThread.Invoke(() => {
+                    _instance.SetSearchQueryString(sq);
+                });
+
                 if (cmd.IsLocalCommand) {
                     PlayOrShowSongList(sq);
                     return;
@@ -245,6 +239,10 @@ namespace MusicPlayer {
             if (cmd.LocalCommand == "Resume") {
                 await LastPlayedSong?.ResumeAsync();
                 return;
+            }
+
+            if (cmd.LocalCommand == "Stop") {
+                await LastPlayedSong?.StopAsync();
             }
 
             if (cmd.LocalCommand == "Toggle") {
