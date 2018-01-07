@@ -51,9 +51,7 @@ namespace MusicPlayer {
 
         public static List<MusicFile> LoadedFiles { get; set; } = new List<MusicFile>();
 
-        private MusicFile() {
-
-        }
+        private MusicFile() {}
 
         public static MusicFile FromFile(string path) {
             if(IsShortcut(path)) {
@@ -80,8 +78,13 @@ namespace MusicPlayer {
                 Filepath = path
             };
 
-            mf.MetadataFile = await Task.Run(() => TagLib.File.Create(mf.Filepath));
-            return mf;
+            try {
+                mf.MetadataFile = await Task.Run(() => TagLib.File.Create(mf.Filepath));
+                return mf;
+            } catch {
+                // Fails if file from shortcut does not exist
+                return null;
+            }
         }
 
         public static MusicFile LastFilePlayed;
